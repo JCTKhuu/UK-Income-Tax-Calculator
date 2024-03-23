@@ -1,12 +1,13 @@
 import matplotlib.pyplot as plt
 
 income = 50000
+max_pa = 12570
 
 #Personal Allowance
 if income < 100000:
     pa = 12570
-elif income > 100000 and income <= 100000 + pa*2:
-    pa = pa - (income-100000)/2
+elif income > 100000 and income <= 100000 + max_pa*2:
+    pa = max_pa - (income-100000)/2
 else:
     pa = 0
     
