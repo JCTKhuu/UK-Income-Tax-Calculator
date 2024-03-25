@@ -3,21 +3,24 @@
 
 import sqlite3
 
-connection = sqlite3.connect('mydatabase.db')
-cursor = connection.cursor()
-
-def create_tables(database_cursor):
-    # """Creates tables countries and tax_brackets"""
-    database_cursor.execute("""
+def create_tables() -> None:
+    # """
+    # Creates database with tables countries and tax_brackets
+    # """
+    connection = sqlite3.connect('mydatabase.db')
+    cursor = connection.cursor()
+    
+    cursor.execute(
+        """
         CREATE TABLE IF NOT EXISTS countries (
             id      INTEGER PRIMARY KEY ON CONFLICT IGNORE,
-            name    TEXT    UNIQUE      ON CONFLICT IGNORE,
-
-            UNIQUE(name) ON CONFLICT IGNORE
+            name    TEXT    UNIQUE      ON CONFLICT IGNORE
         );
-    """)
+        """
+    )
 
-    database_cursor.execute("""
+    cursor.execute(
+        """
         CREATE TABLE IF NOT EXISTS tax_brackets (
             id                  INTEGER PRIMARY KEY ON CONFLICT IGNORE,
             country_id          INTEGER NOT NULL    ON CONFLICT IGNORE,
@@ -29,8 +32,22 @@ def create_tables(database_cursor):
             UNIQUE(country_id, tax_year, bracket_upper_bound) ON CONFLICT IGNORE
             FOREIGN KEY (country_id) REFERENCES countries(id)
         );
-    """)
+        """
+    )
 
-create_tables(cursor)
-connection.commit
-connection.close
+    cursor.execute(
+        """
+        CREATE TABLE IF NOT EXISTS personal_allowance_income_limit (
+            id                  INTEGER PRIMARY KEY ON CONFLICT IGNORE,
+            tax_year            INTEGER NOT NULL    ON CONFLICT IGNORE,
+            income_limit        INTEGER NOT NULL    ON CONFLICT IGNORE,
+
+            UNIQUE(tax_year) ON CONFLICT IGNORE
+        );
+        """
+    )
+
+    connection.commit()
+
+    cursor.close()
+    connection.close()

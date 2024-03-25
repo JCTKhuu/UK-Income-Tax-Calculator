@@ -1,13 +1,15 @@
-import matplotlib.pyplot as plt
 from math import inf
 import sqlite3
+import data.tax_information as tax_information
+import data.create_tables as create_tables
+import data.populate_tables as populate_tables
 import os
 
 class TaxBracket:
-    def __init__(self, rate: float, lower_bound: float, upper_bound: float):
-        self.rate = rate
-        self.lower_bound = lower_bound
-        self.upper_bound = upper_bound
+    def __init__(self, rate: float, lower_bound: float, upper_bound: float) -> None:
+        self.rate        = float(rate)
+        self.lower_bound = float(lower_bound)
+        self.upper_bound = float(upper_bound)
 
     def __str__(self) -> str:
         return(
@@ -19,47 +21,126 @@ class TaxBracket:
             )
         )
 
-class TaxBrackets:
-    def __init__(self, *tax_bracket: TaxBracket, database_name: str):
-        self.tax_brackets = []
+class TaxInformation:
+    def __init__(
+        self,
+        net_income: float,
+        country   : str,
+        tax_year  : int,
+        database  : str = 'mydatabase.db'
+    ) -> None:
+        def load_personal_allowance_income_limit(self) -> None:
+            connection = sqlite3.connect(self.database)
+            cursor = connection.cursor()
 
-        for tax_bracket in tax_bracket:
-            self.tax_brackets.append(tax_bracket)
+            cursor.execute(
+                """
+                SELECT income_limit
+                FROM personal_allowance_income_limit
+                WHERE tax_year = {}
+                ;
+                """.format(self.tax_year)
+            )
 
-        connection = sqlite3.connect(database_name)
-        self.cursor = connection.cursor
+            self.personal_allowance_income_limit = cursor.fetchone()[0]
 
-    def __str__(self):
-        tax_bracket_list = []
+            cursor.close()
+            connection.close()
+
+        def load_and_calc_income_tax_brackets(self) -> None:
+            connection = sqlite3.connect(self.database)
+            cursor = connection.cursor()
+
+            cursor.execute(
+                """
+                SELECT
+                    tax_brackets.name,
+                    tax_brackets.rate,
+                    tax_brackets.bracket_upper_bound
+                FROM tax_brackets
+                JOIN countries ON countries.id = tax_brackets.country_id
+                WHERE   countries.name = '{}'
+                    AND tax_brackets.tax_year = {}
+                ORDER BY tax_brackets.bracket_upper_bound ASC
+                ;
+                """.format(self.country, self.tax_year)
+            )
+
+            tax_bracket_list = cursor.fetchall()
+
+            bracket_lower_bound = 0
+            for tax_bracket in tax_bracket_list:
+                # Determine personal allowance based on income
+                if (    tax_bracket[0] == 'Personal Allowance'
+                    and self.net_income > self.personal_allowance_income_limit):
+                    self.income_tax_brackets.append(
+                        TaxBracket(
+                            rate        = tax_bracket[1],
+                            lower_bound = bracket_lower_bound,
+                            upper_bound = max(tax_bracket[2] - (self.net_income - self.personal_allowance_income_limit) / 2, 0)
+                        )
+                    )
+                else:
+                    self.income_tax_brackets.append(
+                        TaxBracket(
+                            rate        = tax_bracket[1],
+                            lower_bound = bracket_lower_bound,
+                            upper_bound = tax_bracket[2]
+                        )
+                    )
+
+                bracket_lower_bound = self.income_tax_brackets[-1].upper_bound
+
+            connection.close()
         
-        for tax_bracket in self.tax_brackets:
+        # --------------------------------------------------
+        self.net_income                      = net_income
+        self.country                         = country
+        self.tax_year                        = tax_year
+        self.database                        = database
+        self.personal_allowance_income_limit = 0
+        self.income_tax_brackets             = []
+
+        load_personal_allowance_income_limit(self)
+        load_and_calc_income_tax_brackets(self)
+
+    def __str__(self) -> str:
+        tax_bracket_list = []
+
+        for tax_bracket in self.income_tax_brackets:
             tax_bracket_list.append(str(tax_bracket))
 
         return(
             str(tax_bracket_list)
         )
 
-# def tax_brackets(country_id: int, tax_year: int):
-#     connection = sqlite3.connect('mydatabase.db')
-#     cursor = connection.cursor
+def income_tax(tax_information: TaxInformation) -> float:
+    net_income = tax_information.net_income
+    income_tax = 0
 
-#     cursor.execute("""
-#         SELECT *
-#         FROM tax_brackets
-#         WHERE country_id = {country_id}}
-#             and tax_year = {tax_year}
-#     """).format(country_id = country_id, tax_year = tax_year)
-#     tax_bracket_list = cursor.fetchall
+    for tax_bracket in tax_information.income_tax_brackets:
+        # If income is not relevant to (less than) this tax bracket, skip to next tax bracket
+        if net_income < tax_bracket.lower_bound:
+            continue
 
-#     for tax_bracket in tax_bracket_list:
-#         tax_brackets = TaxBracket()
+        # If income is above this tax bracket, tax full amount from this bracket
+        if net_income > tax_bracket.upper_bound:
+            income_tax += (tax_bracket.upper_bound - tax_bracket.lower_bound) * tax_bracket.rate / 100
+        # If income is in this tax bracket, only tax up to income
+        elif net_income <= tax_bracket.upper_bound:
+            income_tax += (net_income - tax_bracket.lower_bound) * tax_bracket.rate / 100
 
-#     connection.close
+    return(income_tax)
 
 if __name__ == '__main__':
-    import data.create_tables   # Create a database with tables for country and tax bracket data
-    import data.populate_tables # Populate database tables with country and tax bracket data
+    create_tables.create_tables()
+    populate_tables.populate_tables()
 
-    if os.path.isfile('data.mydatabase.db'):
-        print('hello')
-        os.remove('data.mydatabase.db')
+    test_tax_info_1 = TaxInformation(
+        net_income   = 200000,
+        country  = 'England',
+        tax_year = 2023
+    )
+    print(test_tax_info_1)
+    print(income_tax(test_tax_info_1))
+
