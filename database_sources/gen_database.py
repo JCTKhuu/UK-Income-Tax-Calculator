@@ -1,12 +1,8 @@
-# THIS IS A SCRIPT THAT WILL RUN ON IMPORT
-# This script will create tables within database "mydatabase.db" that will hold tables for countries and respective tax brackets
-
 import sqlite3
+from countries import countries
+import tax_static_data
 
 def create_tables() -> None:
-    # """
-    # Creates database with tables countries and tax_brackets
-    # """
     connection = sqlite3.connect('mydatabase.db')
     cursor = connection.cursor()
     
@@ -51,3 +47,39 @@ def create_tables() -> None:
 
     cursor.close()
     connection.close()
+
+def populate_tables() -> None:
+    connection = sqlite3.connect('mydatabase.db')
+    cursor = connection.cursor()
+
+    for country in countries:
+        cursor.executescript(
+            """
+            INSERT INTO countries (name) VALUES ('{}');
+            """.format(country)
+        )
+
+    for tax_bracket in tax_static_data.income_tax_brackets():
+        cursor.executescript(
+            """
+            INSERT INTO tax_brackets (country_id, tax_year, name, rate, bracket_upper_bound)
+            VALUES ({}, {}, '{}', {}, '{}');
+            """.format(tax_bracket['Country ID'], tax_bracket['Tax Year'], tax_bracket['Name'], tax_bracket['Tax Rate'], tax_bracket['Bracket Upper Bound'])
+        )
+
+    for personal_allowance_income_limit in tax_static_data.personal_allowance_income_limit():
+        cursor.executescript(
+            """
+            INSERT INTO personal_allowance_income_limit (tax_year, income_limit)
+            VALUES ({}, {});
+            """.format(personal_allowance_income_limit['Tax Year'], personal_allowance_income_limit['Income Limit'])
+        )
+        
+    connection.commit()
+
+    cursor.close()
+    connection.close()
+    
+if __name__ == "__main__":
+    create_tables()
+    populate_tables()
