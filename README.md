@@ -10,7 +10,7 @@ Features
 
 Usage
 
-At current this project is working on the backend, as such it is a command line only project. In future this will be updated to include a user interface.
+At current this project is working on the backend and only supports financial years (beginning) 2021-2023, as such it is a command line only project. In future this will be updated to include a user interface.
 
 Roadmap
 
