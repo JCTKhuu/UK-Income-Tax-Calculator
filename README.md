@@ -2,7 +2,7 @@
  
 This work in progress project is a UK income tax calculator designed to help individuals estimate their income tax liabilities based on their annual income. It provides a simple command-line interface for now, with plans to develop a more user-friendly front end.
 
-Note: This project is currently incomplete. The main tasks remaining are writing the front end and adding the ability to include taxable benefits and pension contributions.
+Note: This project is currently in progress. The main tasks remaining are writing the front end and adding the ability to include taxable benefits and pension contributions.
 
 Features
 
